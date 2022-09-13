@@ -7,7 +7,12 @@ const launchOptions = {
   headless: true
 }
 
-const URL = 'http://69.164.223.208:8086/#/' // http://69.164.223.208:8086/#/
+if (typeof process.argv[2] === 'undefined' || process.argv[2].trim() === '') {
+  console.log('Debe proporcionar una URL valida.')
+  process.exit(1)
+}
+
+const URL = process.argv[2]
 const unwantedCodes = [400, 403, 404, 500, 502, 504]
 
 ;(async () => {
@@ -19,24 +24,27 @@ const unwantedCodes = [400, 403, 404, 500, 502, 504]
   for (const route of routes) {
     const { pathname } = route
 
-    console.log(` [+] ${URL + pathname} ✔`)
-
     const page = await browser.newPage()
     const response = await page.goto(URL + pathname)
 
     const status = response?.status() || 500
     const notFoundInside = await page.locator('h1').allInnerTexts()
+    const isValid = !unwantedCodes.includes(status) && !notFoundInside.includes('Not Found')
 
     if (!unwantedCodes.includes(status) && !notFoundInside.includes('Not Found')) {
-      page.waitForTimeout(200)
+      await page.waitForTimeout(500)
       const parseFilename = pathname.replace(/\//g, '')
       await page.screenshot({ path: `screenshots/${parseFilename}.png` })
     }
 
     await page.close()
 
-    routes[index].status = status
+    routes[index].status = !notFoundInside.includes('Not Found') ? status : 404
     routes[index].pathname = URL + pathname
+
+    const icon = isValid ? '✔' : '❌'
+    console.log(` [+] ${URL + pathname} ${icon}`)
+
     index++
   }
 
